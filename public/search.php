@@ -1,4 +1,5 @@
 <?php
+include '../includes/functions.php';
 include '../config/db.php';
 
 $q = isset($_GET['q']) ? $_GET['q'] : '';
