@@ -21,17 +21,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = 'Password must contain at least one number.';
     } else {
         
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        // Check if username already exists
+        $check_stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $check_stmt->bind_param("s", $username);
+        $check_stmt->execute();
+        $check_stmt->store_result();
 
-        
-        $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-        $stmt->bind_param("ss", $username, $hashed_password);
-
-        if ($stmt->execute()) {
-            header("Location: login.php?success=1");
-            exit();
-        } else {
+        if ($check_stmt->num_rows > 0) {
             $error = 'Username already taken. Please choose another.';
+            $check_stmt->close();
+        } else {
+            $check_stmt->close();
+            
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+            try {
+                $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+                $stmt->bind_param("ss", $username, $hashed_password);
+
+                if ($stmt->execute()) {
+                    header("Location: login.php?success=1");
+                    exit();
+                } else {
+                    $error = 'Error creating account. Please try again.';
+                }
+            } catch (mysqli_sql_exception $e) {
+                // Duplicate entry error code is usually 1062
+                if ($e->getCode() == 1062) {
+                    $error = 'Username already taken. Please choose another.';
+                } else {
+                    $error = 'Database error occurred. Please try again later.';
+                }
+            }
         }
     }
 }
